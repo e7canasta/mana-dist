@@ -1,0 +1,193 @@
+# Edge deployment: mana-hive + mana-hub + bridge
+# 3 residentes, 8 cámaras, ~832M RAM con Leyden AOT
+#
+# Usage:
+#   1. Build JARs: ./build.sh
+#   2. Generate AOT caches: docker compose -f compose.edge.yml up aotgen-hive aotgen-hub aotgen-bridge
+#   3. Run: ./deploy.sh
+#
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mana-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mana_hub
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mana_hub"]
+      interval: 5s
+      retries: 10
+
+  nats:
+    image: nats:latest
+    container_name: mana-nats
+    restart: unless-stopped
+    command: ["-js", "--store_dir=/data"]
+    ports:
+      - "4222:4222"
+    volumes:
+      - natsdata:/data
+    healthcheck:
+      test: ["CMD", "nats-server", "--version"]
+      interval: 10s
+      retries: 5
+
+  # ── AOT Training (run once, or after code changes) ──
+  aotgen-hive:
+    build:
+      context: .
+      dockerfile: aot-jvm/Dockerfile.aotgen
+      args:
+        JAR_FILE: aot-jvm/engines-night-watch-runtime.jar
+    user: "0:0"
+    environment:
+      AOT_DIR: /cache
+      AOT_CACHE: /cache/app.aot
+    volumes:
+      - ./cache:/cache
+    restart: "no"
+
+  aotgen-hub:
+    build:
+      context: .
+      dockerfile: aot-jvm/Dockerfile.aotgen
+      args:
+        JAR_FILE: aot-jvm/bootstrap-1.0.0-SNAPSHOT.jar
+    user: "0:0"
+    command: ["/bin/sh","-c","mkdir -p /cache-hub && java -Xmx512m -XX:MaxMetaspaceSize=256m -XX:AOTCacheOutput=/cache-hub/app.aot -Dspring.context.exit=onRefresh -jar app.jar"]
+    environment:
+      AOT_DIR: /cache-hub
+      AOT_CACHE: /cache-hub/app.aot
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mana_hub
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+    volumes:
+      - ./cache-hub:/cache-hub
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  aotgen-bridge:
+    build:
+      context: .
+      dockerfile: aot-jvm/Dockerfile.aotgen
+      args:
+        JAR_FILE: aot-jvm/event-bridge-1.0.0-SNAPSHOT.jar
+    user: "0:0"
+    environment:
+      AOT_DIR: /cache-bridge
+      AOT_CACHE: /cache-bridge/app.aot
+      NATS_URL: nats://nats:4222
+    volumes:
+      - ./cache-bridge:/cache-bridge
+    depends_on:
+      nats:
+        condition: service_started
+    restart: "no"
+
+  # ── Runtimes (Leyden AOT + Xmx acotado) ──
+  mana-hive:
+    build:
+      context: .
+      dockerfile: aot-jvm/Dockerfile.deploy
+      args:
+        JAR_FILE: aot-jvm/engines-night-watch-runtime.jar
+    container_name: mana-hive
+    command: ["java", "-Xmx256m", "-XX:MaxMetaspaceSize=96m", "-XX:AOTCache=/cache/app.aot", "-jar", "app.jar"]
+    environment:
+      AOT_DIR: /cache
+      AOT_CACHE: /cache/app.aot
+      NATS_URL: nats://nats:4222
+    volumes:
+      - ./cache:/cache
+      - ./config/mana-hive/application.yml:/application/application.yml
+      - ./shared/profiles:/application/profiles
+      - ./shared/logs/hive:/application/logs
+    depends_on:
+      aotgen-hive:
+        condition: service_completed_successfully
+      nats:
+        condition: service_started
+    ports:
+      - "18081:8081"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+
+  mana-hub:
+    build:
+      context: .
+      dockerfile: aot-jvm/Dockerfile.deploy
+      args:
+        JAR_FILE: aot-jvm/bootstrap-1.0.0-SNAPSHOT.jar
+    container_name: mana-hub
+    command: ["java", "-Xmx512m", "-XX:MaxMetaspaceSize=192m", "-XX:AOTCache=/cache-hub/app.aot", "-jar", "app.jar"]
+    environment:
+      AOT_DIR: /cache-hub
+      AOT_CACHE: /cache-hub/app.aot
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mana_hub
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+    volumes:
+      - ./cache-hub:/cache-hub
+      - ./config/mana-hub/application.yml:/application/application.yml
+      - ./shared/logs/hub:/application/logs
+    depends_on:
+      aotgen-hub:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 700M
+
+  bridge:
+    build:
+      context: .
+      dockerfile: aot-jvm/Dockerfile.deploy
+      args:
+        JAR_FILE: aot-jvm/event-bridge-1.0.0-SNAPSHOT.jar
+    container_name: mana-bridge
+    command: ["java", "-Xmx256m", "-XX:MaxMetaspaceSize=96m", "-XX:AOTCache=/cache-bridge/app.aot", "-jar", "app.jar"]
+    environment:
+      AOT_DIR: /cache-bridge
+      AOT_CACHE: /cache-bridge/app.aot
+      NATS_URL: nats://nats:4222
+      BRIDGE_TARGET_URL: http://mana-hub:8080
+    volumes:
+      - ./cache-bridge:/cache-bridge
+      - ./config/bridge/application.yml:/application/application.yml
+      - ./shared/logs/bridge:/application/logs
+    depends_on:
+      aotgen-bridge:
+        condition: service_completed_successfully
+      nats:
+        condition: service_started
+      mana-hub:
+        condition: service_started
+    ports:
+      - "8090:8090"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 350M
+
+volumes:
+  pgdata:
+  natsdata:

@@ -1,0 +1,15 @@
+# Build artifacts / JARs
+aot-jvm/*.jar
+
+# Cache directories (build/runtime)
+cache/
+cache-bridge/
+cache-hub/
+
+# Runtime data
+shared/logs/
+shared/profiles/
+
+# OS files
+.DS_Store
+Thumbs.db

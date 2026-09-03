@@ -1,0 +1,56 @@
+{
+  "profileId": "jose@escalation",
+  "residentId": "jose",
+  "version": 1,
+  "supersedes": 0,
+  "validFrom": "2026-09-07T22:00:00Z",
+  "provenance": {
+    "template": "STANDARD",
+    "templateVersion": "1.0.0",
+    "authoredBy": "dr-sistema",
+    "authoredAt": "2026-09-02T00:00:00Z",
+    "reason": "perfil para validar escalado WARNING → CRITICAL"
+  },
+  "windows": [],
+  "subjects": {
+    "resident": {
+      "kind": "dag",
+      "aspects": {
+        "posture": {
+          "unknownIsInitial": true,
+          "confidence": {
+            "SITTING_IN_BED": 0.8,
+            "STANDING": 0.85
+          },
+          "transitions": [
+            { "from": "LYING", "to": "SITTING_IN_BED", "stableFor": "PT1.5S" },
+            { "from": "SITTING_IN_BED", "to": "LYING", "stableFor": "PT1.5S" },
+            { "from": "SITTING_IN_BED", "to": "STANDING", "stableFor": "PT1.5S" }
+          ],
+          "states": {
+            "LYING": {},
+            "SITTING_IN_BED": {
+              "onEntry": [
+                {
+                  "window": "always",
+                  "severity": "WARNING",
+                  "closure": "SAFE_ONLY"
+                }
+              ]
+            },
+            "STANDING": {
+              "dwell": [
+                {
+                  "warningAfter": "PT2M",
+                  "alertAfter": "PT3M",
+                  "severity": "CRITICAL",
+                  "closure": "STAFF_AND_SAFE"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

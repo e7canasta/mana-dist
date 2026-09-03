@@ -1,0 +1,120 @@
+{
+  "profileId": "jose@v15",
+  "residentId": "jose",
+  "version": 15,
+  "supersedes": 14,
+  "validFrom": "2026-09-05T22:00:00Z",
+  "provenance": {
+    "template": "STANDARD",
+    "templateVersion": "1.0.0",
+    "authoredBy": "dr-sistema",
+    "authoredAt": "2024-01-15T10:00:00Z",
+    "reason": "v15 rampa para 03 3 episodios"
+  },
+  "windows": [],
+  "subjects": {
+    "resident": {
+      "kind": "dag",
+      "aspects": {
+        "posture": {
+          "unknownIsInitial": true,
+          "confidence": {
+            "SITTING_IN_BED": 0.8,
+            "STANDING": 0.85
+          },
+          "transitions": [
+            {
+              "from": "LYING",
+              "to": "SITTING_IN_BED",
+              "stableFor": "PT1.5S",
+              "record": {
+                "before": "PT30S",
+                "after": "PT2M",
+                "quality": "HIGH"
+              }
+            },
+            {
+              "from": "SITTING_IN_BED",
+              "to": "LYING",
+              "stableFor": "PT1.5S"
+            },
+            {
+              "from": "SITTING_IN_BED",
+              "to": "STANDING",
+              "stableFor": "PT1.5S"
+            },
+            {
+              "from": "STANDING",
+              "to": "LYING",
+              "stableFor": "PT1.5S"
+            },
+            {
+              "from": "STANDING",
+              "to": "SITTING_IN_BED",
+              "stableFor": "PT1.5S"
+            }
+          ],
+          "states": {
+            "LYING": {
+              "comeBack": [
+                {
+                  "window": "always",
+                  "warningAfter": "PT5M",
+                  "alertAfter": "PT8M",
+                  "severity": "WARNING",
+                  "closure": "STAFF_OR_SAFE",
+                  "notify": {
+                    "channels": [
+                      "PUSH",
+                      "TABLET"
+                    ],
+                    "escalateAfter": "PT3M"
+                  },
+                  "record": {
+                    "before": "PT1M",
+                    "after": "PT3M",
+                    "quality": "HIGH"
+                  }
+                }
+              ]
+            },
+            "SITTING_IN_BED": {
+              "onEntry": [
+                {
+                  "window": "always",
+                  "severity": "WARNING",
+                  "closure": "SAFE_ONLY",
+                  "notify": {
+                    "channels": [
+                      "PUSH",
+                      "TABLET"
+                    ],
+                    "escalateAfter": "PT1M"
+                  }
+                }
+              ]
+            },
+            "STANDING": {
+              "dwell": [
+                {
+                  "window": "always",
+                  "warningAfter": "PT2M",
+                  "alertAfter": "PT3M",
+                  "severity": "CRITICAL",
+                  "closure": "STAFF_AND_SAFE",
+                  "notify": {
+                    "channels": [
+                      "PUSH",
+                      "TABLET"
+                    ],
+                    "escalateAfter": "PT1M"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

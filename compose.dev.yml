@@ -1,0 +1,143 @@
+# Development: mount JARs directly, no rebuild needed
+# Solo monta los JARs y configs desde el host
+#
+# Usage:
+#   1. Build JARs: ./build.sh
+#   2. Run: docker compose -f compose.dev.yml up -d
+#   3. After code change: ./build.sh && docker compose -f compose.dev.yml restart
+#
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mana-pg-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mana_hub
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mana_hub"]
+      interval: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:8
+    container_name: mana-mongo-dev
+    restart: unless-stopped
+    volumes:
+      - mongodata-dev:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  nats:
+    image: nats:latest
+    container_name: mana-nats-dev
+    restart: unless-stopped
+    command: ["-js"]
+    ports:
+      - "4222:4222"
+    volumes:
+      - natsdata-dev:/data
+
+  mana-hive:
+    image: eclipse-temurin:25-jre
+    container_name: mana-hive-dev
+    command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
+    environment:
+      NATS_URL: nats://nats:4222
+      HUB_URL: http://mana-hub:8080
+      MANAHIVE_PROFILES_DIR: /app/profiles
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+    volumes:
+      - ./aot-jvm/engines-night-watch-runtime.jar:/app/app.jar
+      - ./shared/profiles:/app/profiles
+      - ./shared/logs/hive:/app/logs
+    ports:
+      - "18081:8081"
+    depends_on:
+      - nats
+    restart: unless-stopped
+
+  mana-hub:
+    image: eclipse-temurin:25-jre
+    container_name: mana-hub-dev
+    command: ["java", "-Xmx512m", "-jar", "/app/app.jar"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mana_hub
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      BRIDGE_TARGET_URL: http://bridge:8090
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
+    volumes:
+      - ./aot-jvm/bootstrap-1.0.0-SNAPSHOT.jar:/app/app.jar
+      - ./shared/logs/hub:/app/logs
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  bridge:
+    image: eclipse-temurin:25-jre
+    container_name: mana-bridge-dev
+    command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
+    environment:
+      NATS_URL: nats://nats:4222
+      BRIDGE_TARGET_URL: http://mana-hub:8080
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+    volumes:
+      - ./aot-jvm/event-bridge-1.0.0-SNAPSHOT.jar:/app/app.jar
+      - ./shared/logs/bridge:/app/logs
+    ports:
+      - "8090:8090"
+    depends_on:
+      - nats
+      - mana-hub
+    restart: unless-stopped
+
+  mana-cox:
+    image: eclipse-temurin:25-jre
+    container_name: mana-cox-dev
+    command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
+    environment:
+      SERVER_PORT: 8091
+      SPRING_PROFILES_ACTIVE: mongodb
+      MONGODB_URI: mongodb://mongo:27017/mana_cox
+      COX_NATS_URL: nats://nats:4222
+      COX_HUB_URL: http://mana-hub:8080
+      COX_HIVE_URL: http://mana-hive:8081
+      COX_PROFILE_PATH: /app/profiles/jose-v-min.json
+      COX_PROFILE_PATH_02: /app/profiles/jose-v14.json
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+    volumes:
+      - ./aot-jvm/mana-cox.jar:/app/app.jar
+      - ./config/mana-hive/profiles:/app/profiles:ro
+      - ./shared/logs/cox:/app/logs
+    ports:
+      - "8091:8091"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      mana-hive:
+        condition: service_started
+      mana-hub:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata-dev:
+  natsdata-dev:
+  mongodata-dev:

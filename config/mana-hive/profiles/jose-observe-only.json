@@ -1,0 +1,39 @@
+{
+  "profileId": "jose@observe-only",
+  "residentId": "jose",
+  "version": 1,
+  "supersedes": 0,
+  "validFrom": "2026-09-09T22:00:00Z",
+  "provenance": {
+    "template": "STANDARD",
+    "templateVersion": "1.0.0",
+    "authoredBy": "dr-sistema",
+    "authoredAt": "2026-09-02T00:00:00Z",
+    "reason": "perfil para validar observeOnly (sin alertas)"
+  },
+  "windows": [],
+  "subjects": {
+    "resident": {
+      "kind": "dag",
+      "aspects": {
+        "posture": {
+          "unknownIsInitial": true,
+          "confidence": {
+            "SITTING_IN_BED": 0.8,
+            "STANDING": 0.85
+          },
+          "transitions": [
+            { "from": "LYING", "to": "SITTING_IN_BED", "stableFor": "PT1.5S" },
+            { "from": "SITTING_IN_BED", "to": "LYING", "stableFor": "PT1.5S" }
+          ],
+          "states": {
+            "LYING": {},
+            "SITTING_IN_BED": {
+              "observeOnly": true
+            }
+          }
+        }
+      }
+    }
+  }
+}

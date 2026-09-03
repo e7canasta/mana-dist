@@ -1,0 +1,48 @@
+{
+  "profileId": "jose@fall",
+  "residentId": "jose",
+  "version": 1,
+  "supersedes": 0,
+  "validFrom": "2026-09-10T22:00:00Z",
+  "provenance": {
+    "template": "STANDARD",
+    "templateVersion": "1.0.0",
+    "authoredBy": "dr-sistema",
+    "authoredAt": "2026-09-02T00:00:00Z",
+    "reason": "perfil para validar detección de caída (siempre CRITICAL)"
+  },
+  "windows": [],
+  "subjects": {
+    "resident": {
+      "kind": "dag",
+      "aspects": {
+        "posture": {
+          "unknownIsInitial": true,
+          "confidence": {
+            "SITTING_IN_BED": 0.8,
+            "STANDING": 0.85,
+            "ON_FLOOR": 0.95
+          },
+          "transitions": [
+            { "from": "LYING", "to": "SITTING_IN_BED", "stableFor": "PT1.5S" },
+            { "from": "SITTING_IN_BED", "to": "LYING", "stableFor": "PT1.5S" },
+            { "from": "LYING", "to": "ON_FLOOR", "stableFor": "PT0.8S" }
+          ],
+          "states": {
+            "LYING": {},
+            "SITTING_IN_BED": {},
+            "ON_FLOOR": {
+              "onEntry": [
+                {
+                  "window": "always",
+                  "severity": "CRITICAL",
+                  "closure": "STAFF_AND_SAFE"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

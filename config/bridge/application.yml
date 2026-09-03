@@ -1,0 +1,19 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: event-bridge
+
+nats:
+  url: nats://nats:4222
+
+bridge:
+  target:
+    url: http://mana-hub:8080
+  nats:
+    durable: bridge
+
+logging:
+  level:
+    com.hub.bridge: INFO
