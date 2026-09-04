@@ -35,6 +35,7 @@ echo "=== Building mana-ui ==="
 cd "$WORKSPACE/mana-ui"
 pnpm --filter web build
 echo "✓ mana-ui built"
+cd "$ROOT"
 
 echo ""
 echo "=== Build complete ==="
