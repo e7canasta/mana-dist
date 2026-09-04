@@ -188,6 +188,22 @@ services:
         limits:
           memory: 350M
 
+  mana-ui:
+    build:
+      context: ..
+      dockerfile: mana-dist/mana-ui/Dockerfile
+    container_name: mana-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      mana-hub:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
 volumes:
   pgdata:
   natsdata:

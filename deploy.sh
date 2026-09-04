@@ -34,6 +34,7 @@ docker compose -f compose.edge.yml ps
 
 echo ""
 echo "=== Endpoints ==="
+echo "  mana-ui:    http://localhost:3000"
 echo "  mana-hive:  http://localhost:18081"
 echo "  mana-hub:   http://localhost:8080"
 echo "  bridge:     http://localhost:8090"

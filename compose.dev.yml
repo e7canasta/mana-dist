@@ -17,7 +17,6 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - pgdata-dev:/var/lib/postgresql/data
-      - ./init-db:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     healthcheck:
@@ -77,6 +76,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       BRIDGE_TARGET_URL: http://bridge:8090
+      NATS_URL: nats://nats:4222
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
     volumes:
       - ./aot-jvm/bootstrap-1.0.0-SNAPSHOT.jar:/app/app.jar
@@ -86,6 +86,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      nats:
+        condition: service_started
     restart: unless-stopped
 
   bridge:
@@ -103,6 +105,17 @@ services:
       - "8090:8090"
     depends_on:
       - nats
+      - mana-hub
+    restart: unless-stopped
+
+  mana-ui:
+    build:
+      context: ..
+      dockerfile: mana-dist/mana-ui/Dockerfile
+    container_name: mana-ui-dev
+    ports:
+      - "3000:80"
+    depends_on:
       - mana-hub
     restart: unless-stopped
 
