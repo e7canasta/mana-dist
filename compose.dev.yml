@@ -6,10 +6,11 @@
 #   2. Run: docker compose -f compose.dev.yml up -d
 #   3. After code change: ./build.sh && docker compose -f compose.dev.yml restart
 #
+name: ${COMPOSE_PROJECT_NAME:-mana-dev}
+
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: mana-pg-dev
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mana_hub}
@@ -26,7 +27,6 @@ services:
 
   mongo:
     image: mongo:8
-    container_name: mana-mongo-dev
     restart: unless-stopped
     volumes:
       - mongodata-dev:/data/db
@@ -40,7 +40,6 @@ services:
 
   nats:
     image: nats:latest
-    container_name: mana-nats-dev
     restart: unless-stopped
     command: ["-js"]
     ports:
@@ -50,7 +49,6 @@ services:
 
   mana-hive:
     image: eclipse-temurin:25-jre
-    container_name: mana-hive-dev
     command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
     environment:
       NATS_URL: nats://nats:4222
@@ -69,7 +67,6 @@ services:
 
   mana-hub:
     image: eclipse-temurin:25-jre
-    container_name: mana-hub-dev
     command: ["java", "-Xmx512m", "-jar", "/app/app.jar"]
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mana_hub
@@ -92,7 +89,6 @@ services:
 
   bridge:
     image: eclipse-temurin:25-jre
-    container_name: mana-bridge-dev
     command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
     environment:
       NATS_URL: nats://nats:4222
@@ -112,7 +108,6 @@ services:
     build:
       context: ..
       dockerfile: mana-dist/mana-ui/Dockerfile
-    container_name: mana-ui-dev
     ports:
       - "${MANA_UI_PORT:-3000}:80"
     depends_on:
@@ -121,7 +116,6 @@ services:
 
   mana-cox:
     image: eclipse-temurin:25-jre
-    container_name: mana-cox-dev
     command: ["java", "-Xmx256m", "-jar", "/app/app.jar"]
     environment:
       SERVER_PORT: 8091

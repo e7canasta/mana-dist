@@ -6,10 +6,11 @@
 #   2. Generate AOT caches: docker compose -f compose.edge.yml up aotgen-hive aotgen-hub aotgen-bridge
 #   3. Run: ./deploy.sh
 #
+name: ${COMPOSE_PROJECT_NAME:-mana-edge}
+
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: mana-pg
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mana_hub}
@@ -24,7 +25,6 @@ services:
 
   nats:
     image: nats:latest
-    container_name: mana-nats
     restart: unless-stopped
     command: ["-js", "--store_dir=/data"]
     ports:
@@ -38,7 +38,6 @@ services:
 
   mongo:
     image: mongo:8
-    container_name: mana-mongo
     restart: unless-stopped
     volumes:
       - mongodata:/data/db
@@ -112,7 +111,6 @@ services:
       dockerfile: aot-jvm/Dockerfile.deploy
       args:
         JAR_FILE: aot-jvm/engines-night-watch-runtime.jar
-    container_name: mana-hive
     command: ["java", "-Xmx256m", "-XX:MaxMetaspaceSize=96m", "-XX:AOTCache=/cache/app.aot", "-jar", "app.jar"]
     environment:
       AOT_DIR: /cache
@@ -141,7 +139,6 @@ services:
       dockerfile: aot-jvm/Dockerfile.deploy
       args:
         JAR_FILE: aot-jvm/bootstrap-1.0.0-SNAPSHOT.jar
-    container_name: mana-hub
     command: ["java", "-Xmx512m", "-XX:MaxMetaspaceSize=192m", "-XX:AOTCache=/cache-hub/app.aot", "-jar", "app.jar"]
     environment:
       AOT_DIR: /cache-hub
@@ -173,7 +170,6 @@ services:
       dockerfile: aot-jvm/Dockerfile.deploy
       args:
         JAR_FILE: aot-jvm/event-bridge-1.0.0-SNAPSHOT.jar
-    container_name: mana-bridge
     command: ["java", "-Xmx256m", "-XX:MaxMetaspaceSize=96m", "-XX:AOTCache=/cache-bridge/app.aot", "-jar", "app.jar"]
     environment:
       AOT_DIR: /cache-bridge
@@ -202,7 +198,6 @@ services:
     build:
       context: ..
       dockerfile: mana-dist/mana-ui/Dockerfile
-    container_name: mana-ui
     ports:
       - "${MANA_UI_PORT:-3000}:80"
     depends_on:
@@ -221,7 +216,6 @@ services:
       dockerfile: aot-jvm/Dockerfile.deploy
       args:
         JAR_FILE: aot-jvm/mana-cox.jar
-    container_name: mana-cox
     command: ["java", "-Xmx256m", "-XX:MaxMetaspaceSize=96m", "-jar", "app.jar"]
     environment:
       SERVER_PORT: 8091
