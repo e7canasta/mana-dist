@@ -12,9 +12,9 @@ services:
     container_name: mana-pg
     restart: unless-stopped
     environment:
-      POSTGRES_DB: mana_hub
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-mana_hub}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for edge}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -28,13 +28,25 @@ services:
     restart: unless-stopped
     command: ["-js", "--store_dir=/data"]
     ports:
-      - "4222:4222"
+      - "${NATS_PORT:-4222}:4222"
     volumes:
       - natsdata:/data
     healthcheck:
       test: ["CMD", "nats-server", "--version"]
       interval: 10s
       retries: 5
+
+  mongo:
+    image: mongo:8
+    container_name: mana-mongo
+    restart: unless-stopped
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # ── AOT Training (run once, or after code changes) ──
   aotgen-hive:
@@ -64,7 +76,7 @@ services:
       AOT_CACHE: /cache-hub/app.aot
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mana_hub
       SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for edge}
       SPRING_FLYWAY_ENABLED: "true"
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
     volumes:
@@ -94,6 +106,7 @@ services:
 
   # ── Runtimes (Leyden AOT + Xmx acotado) ──
   mana-hive:
+    image: ${MANA_IMAGE_PREFIX:-mana}/mana-hive:${MANA_VERSION:-local}
     build:
       context: .
       dockerfile: aot-jvm/Dockerfile.deploy
@@ -108,11 +121,9 @@ services:
     volumes:
       - ./cache:/cache
       - ./config/mana-hive/application.yml:/application/application.yml
-      - ./shared/profiles:/application/profiles
+      - ./config/mana-hive/profiles:/application/profiles:ro
       - ./shared/logs/hive:/application/logs
     depends_on:
-      aotgen-hive:
-        condition: service_completed_successfully
       nats:
         condition: service_started
     ports:
@@ -124,6 +135,7 @@ services:
           memory: 400M
 
   mana-hub:
+    image: ${MANA_IMAGE_PREFIX:-mana}/mana-hub:${MANA_VERSION:-local}
     build:
       context: .
       dockerfile: aot-jvm/Dockerfile.deploy
@@ -136,7 +148,7 @@ services:
       AOT_CACHE: /cache-hub/app.aot
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mana_hub
       SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for edge}
       SPRING_FLYWAY_ENABLED: "true"
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
     volumes:
@@ -144,12 +156,10 @@ services:
       - ./config/mana-hub/application.yml:/application/application.yml
       - ./shared/logs/hub:/application/logs
     depends_on:
-      aotgen-hub:
-        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "${MANA_HUB_PORT:-8080}:8080"
     restart: unless-stopped
     deploy:
       resources:
@@ -157,6 +167,7 @@ services:
           memory: 700M
 
   bridge:
+    image: ${MANA_IMAGE_PREFIX:-mana}/mana-bridge:${MANA_VERSION:-local}
     build:
       context: .
       dockerfile: aot-jvm/Dockerfile.deploy
@@ -174,14 +185,12 @@ services:
       - ./config/bridge/application.yml:/application/application.yml
       - ./shared/logs/bridge:/application/logs
     depends_on:
-      aotgen-bridge:
-        condition: service_completed_successfully
       nats:
         condition: service_started
       mana-hub:
         condition: service_started
     ports:
-      - "8090:8090"
+      - "${MANA_BRIDGE_PORT:-8090}:8090"
     restart: unless-stopped
     deploy:
       resources:
@@ -189,12 +198,13 @@ services:
           memory: 350M
 
   mana-ui:
+    image: ${MANA_IMAGE_PREFIX:-mana}/mana-ui:${MANA_VERSION:-local}
     build:
       context: ..
       dockerfile: mana-dist/mana-ui/Dockerfile
     container_name: mana-ui
     ports:
-      - "3000:80"
+      - "${MANA_UI_PORT:-3000}:80"
     depends_on:
       mana-hub:
         condition: service_started
@@ -204,6 +214,41 @@ services:
         limits:
           memory: 64M
 
+  mana-cox:
+    image: ${MANA_IMAGE_PREFIX:-mana}/mana-cox:${MANA_VERSION:-local}
+    build:
+      context: .
+      dockerfile: aot-jvm/Dockerfile.deploy
+      args:
+        JAR_FILE: aot-jvm/mana-cox.jar
+    container_name: mana-cox
+    command: ["java", "-Xmx256m", "-XX:MaxMetaspaceSize=96m", "-jar", "app.jar"]
+    environment:
+      SERVER_PORT: 8091
+      SPRING_PROFILES_ACTIVE: mongodb
+      MONGODB_URI: mongodb://mongo:27017/mana_cox
+      COX_NATS_URL: nats://nats:4222
+      COX_HUB_URL: http://mana-hub:8080
+      COX_HIVE_URL: http://mana-hive:8081
+      COX_PROFILE_PATH: /application/profiles/jose-v-min.json
+      COX_PROFILE_PATH_02: /application/profiles/jose-v14.json
+    volumes:
+      - ./config/mana-hive/profiles:/application/profiles:ro
+      - ./shared/logs/cox:/application/logs
+    depends_on:
+      mongo:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      mana-hive:
+        condition: service_started
+      mana-hub:
+        condition: service_started
+    ports:
+      - "${MANA_COX_PORT:-8091}:8091"
+    restart: unless-stopped
+
 volumes:
   pgdata:
   natsdata:
+  mongodata:

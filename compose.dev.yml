@@ -12,13 +12,13 @@ services:
     container_name: mana-pg-dev
     restart: unless-stopped
     environment:
-      POSTGRES_DB: mana_hub
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-mana_hub}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - pgdata-dev:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d mana_hub"]
       interval: 5s
@@ -31,7 +31,7 @@ services:
     volumes:
       - mongodata-dev:/data/db
     ports:
-      - "27017:27017"
+      - "${MONGO_PORT:-27017}:27017"
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
       interval: 5s
@@ -44,7 +44,7 @@ services:
     restart: unless-stopped
     command: ["-js"]
     ports:
-      - "4222:4222"
+      - "${NATS_PORT:-4222}:4222"
     volumes:
       - natsdata-dev:/data
 
@@ -59,10 +59,10 @@ services:
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
     volumes:
       - ./aot-jvm/engines-night-watch-runtime.jar:/app/app.jar
-      - ./shared/profiles:/app/profiles
+      - ./config/mana-hive/profiles:/app/profiles:ro
       - ./shared/logs/hive:/app/logs
     ports:
-      - "18081:8081"
+      - "${MANA_HIVE_PORT:-18081}:8081"
     depends_on:
       - nats
     restart: unless-stopped
@@ -74,7 +74,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mana_hub
       SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       BRIDGE_TARGET_URL: http://bridge:8090
       NATS_URL: nats://nats:4222
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus
@@ -82,7 +82,7 @@ services:
       - ./aot-jvm/bootstrap-1.0.0-SNAPSHOT.jar:/app/app.jar
       - ./shared/logs/hub:/app/logs
     ports:
-      - "8080:8080"
+      - "${MANA_HUB_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -102,7 +102,7 @@ services:
       - ./aot-jvm/event-bridge-1.0.0-SNAPSHOT.jar:/app/app.jar
       - ./shared/logs/bridge:/app/logs
     ports:
-      - "8090:8090"
+      - "${MANA_BRIDGE_PORT:-8090}:8090"
     depends_on:
       - nats
       - mana-hub
@@ -114,7 +114,7 @@ services:
       dockerfile: mana-dist/mana-ui/Dockerfile
     container_name: mana-ui-dev
     ports:
-      - "3000:80"
+      - "${MANA_UI_PORT:-3000}:80"
     depends_on:
       - mana-hub
     restart: unless-stopped
@@ -138,7 +138,7 @@ services:
       - ./config/mana-hive/profiles:/app/profiles:ro
       - ./shared/logs/cox:/app/logs
     ports:
-      - "8091:8091"
+      - "${MANA_COX_PORT:-8091}:8091"
     depends_on:
       mongo:
         condition: service_healthy

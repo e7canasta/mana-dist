@@ -24,7 +24,8 @@ clone_repo() {
   fi
 
   echo "Cloning $name ($ref)"
-  git clone --branch "$ref" --single-branch "$url" "$target"
+  git clone --filter=blob:none "$url" "$target"
+  git -C "$target" checkout --detach "$ref"
 }
 
 command -v git >/dev/null || { echo "ERROR: git is required" >&2; exit 1; }
