@@ -47,7 +47,7 @@ mana-dist/
 ├── compose.dev.yml               # Desarrollo: JARs montados desde host
 ├── compose.edge.yml              # Producción/edge: imágenes con AOT + jlink
 ├── mana-ui/
-│   ├── Dockerfile                 # Build multi-stage de crm-ui
+│   ├── Dockerfile                 # Build multi-stage de mana-ui
 │   └── nginx.conf                 # SPA + proxy /api hacia mana-hub
 │
 ├── aot-jvm/
@@ -143,7 +143,7 @@ Services: postgres, nats, aotgen-hive, aotgen-hub, aotgen-bridge,
 | RAM total | ~2GB | ~1.6GB |
 | Rebuild | `./build.sh` + restart | `./build.sh` + aotgen + deploy |
 
-`mana-ui` se construye desde el repositorio hermano `../crm-ui`, sirve la SPA
+`mana-ui` se construye desde el repositorio hermano `../mana-ui`, sirve la SPA
 con Nginx y proxifica `/api/` internamente hacia `mana-hub`. Queda disponible en
 `http://localhost:3000`.
 
@@ -275,7 +275,7 @@ tail -f shared/logs/hive/*.log
 
 Esto builda desde los repos fuente (`../mana-hive`, `../mana-hub`, `../mana-cox`) y copia los JARs a `aot-jvm/`.
 
-El build de `mana-ui` necesita que `../crm-ui` este clonado al lado de
+El build de `mana-ui` necesita que `../mana-ui` este clonado al lado de
 `mana-dist`. Docker usa el contexto `..` para construir la imagen desde ese
 repositorio hermano.
 
