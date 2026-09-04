@@ -33,6 +33,8 @@ cp "$WORKSPACE/mana-cox/app/build/libs/mana-cox.jar" aot-jvm/
 echo ""
 echo "=== Building mana-ui ==="
 cd "$WORKSPACE/mana-ui"
+corepack enable
+pnpm install --frozen-lockfile
 pnpm --filter web build
 echo "✓ mana-ui built"
 cd "$ROOT"
