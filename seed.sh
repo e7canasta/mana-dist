@@ -16,6 +16,7 @@ for _ in {1..60}; do
     break
   fi
   sleep 2
+done
 
 "${COMPOSE[@]}" exec -T postgres pg_isready -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-mana_hub}" >/dev/null
 echo "Applying fixture: $SCENARIO"
