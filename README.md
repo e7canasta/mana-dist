@@ -35,6 +35,27 @@ Optimizado para edge: 3 residentes, 8 cámaras, ~1.6GB RAM con Leyden AOT.
 
 **Flujo:** Cámaras → mana-hive (escena) → NATS → bridge → mana-hub (persistencia)
 
+## Instalación desde cero
+
+Este repositorio es el punto de entrada del entorno completo. Desde una carpeta
+vacía:
+
+```bash
+git clone https://github.com/e7canasta/mana-dist.git
+cd mana-dist
+./bootstrap.sh
+./build.sh
+docker compose -f compose.dev.yml up -d
+```
+
+`bootstrap.sh` clona los repositorios fuente al mismo nivel que `mana-dist` y
+`build.sh` compila los JARs, el bridge, mana-cox y mana-ui. Las versiones se
+controlan en `repos.env`.
+
+La interfaz queda en `http://localhost:3000`; mana-hub en
+`http://localhost:8080`. Para cargar el escenario de José, esperar a que Hub
+termine de migrar y ejecutar el comando de seed indicado más abajo.
+
 ---
 
 ## Estructura del directorio
@@ -273,7 +294,7 @@ tail -f shared/logs/hive/*.log
 ./build.sh
 ```
 
-Esto builda desde los repos fuente (`../mana-hive`, `../mana-hub`, `../mana-cox`) y copia los JARs a `aot-jvm/`.
+Esto builda desde los repos fuente (`../mana-hive`, `../mana-hub`, `../mana-cox`) y copia los JARs a `aot-jvm/`. También compila `../mana-ui`.
 
 El build de `mana-ui` necesita que `../mana-ui` este clonado al lado de
 `mana-dist`. Docker usa el contexto `..` para construir la imagen desde ese
